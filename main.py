@@ -4,7 +4,7 @@
     -https://github.com/barteqcz/MicroRDS/blob/main/src/lib.c (for af and the charset)
     -http://www.interactive-radio-system.com/docs/EN50067_RDS_Standard.pdf (for the mjd calculation)
 this is mostly tested with RDS Spy and redsea
-bash Commands used: /bin/python /home/kuba/rdsEncoder.py | redsea -h  /bin/python /home/kuba/rdsEncoder.py > test.spy
+bash Commands used: /bin/python /home/kuba/rdsEncoder.py | redsea -h  /bin/python /home/kuba/rdsEncoder.py > test.spy , python3 rdsEncoder.py | redsea -i bits -R
 
 Does it work? yes, excluding CT, i can't properly test it however it might be working if you just decode it properly"""
 
@@ -302,6 +302,10 @@ def pr(blocks):
     for i in blocks:
         print(hex(i).removeprefix("0x").upper().zfill(4),end=" ",flush=True)
     print(flush=True)
+def pr_bit(bits):
+    """This will print the blocks in a format which can be either outputed to redsea or to pydemod to modulate"""
+    for bit in bits:
+        print("1" if int(bit) == 1 else "0",end="",flush=True)
 class GroupInterface:
     """This is a comfort class which will automatically pick the number of segments for a selected type of group"""
     def getPS(text: str, full:bool=False):
@@ -360,6 +364,38 @@ class GroupSequencer:
         self.cur_idx += 1
         return prev
 
+import numpy
+class BitGenerator:
+    def _generate(wordstream):
+        #i stole this code from pydemod https://github.com/ChristopheJacquet/Pydemod
+        def to_bin(x):
+            res = []
+            for i in range(16):
+                res.insert(0, x % 2)
+                x >>= 1
+            return res
+        words = numpy.array([to_bin(ow[1]) for ow in wordstream])
+        offsets = numpy.array(list(map(lambda ow: numpy.array({'A': [0, 0, 1, 1, 1, 1, 1, 1, 0, 0], 'B': [0, 1, 1, 0, 0, 1, 1, 0, 0, 0], 'C': [0, 1, 0, 1, 1, 0, 1, 0, 0, 0], "C'": [1, 1, 0, 1, 0, 1, 0, 0, 0, 0], 'D': [0, 1, 1, 0, 1, 1, 0, 1, 0, 0]}[ow[0]]), wordstream)))
+        poly = numpy.array([1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1], dtype=int)
+        check_size = poly.size - 1
+        matp = numpy.empty([0,check_size], dtype=int)
+        for i in range(16):
+            (q, r) = numpy.polydiv(numpy.identity(16+check_size, dtype=int)[i], poly)
+            if check_size - r.size > 0:
+                r = numpy.append(numpy.zeros(check_size - r.size, dtype=int), r)
+            rr = numpy.mod(numpy.array([r], dtype=int), 2)
+            matp = numpy.append(matp, rr, axis=0)
+        matg = numpy.append(numpy.identity(16, dtype=int), matp, axis=1)
+        bitstream = numpy.dot(words, matg) % 2
+        bitstream = bitstream.astype(int)
+        offsets = offsets.astype(int)
+        bitstream[:,16:] ^= offsets
+        return bitstream.flatten()
+    def process(blocks: list):
+        for i,block in enumerate(blocks):
+            blocks[i] = (["A","B","C","D"][i], block)
+        return BitGenerator._generate(blocks)
+
 basic = GroupGenerator.basicGroup(0x3073, pty=10)
 ps = GroupInterface.getPS("radio95", True)
 rt = GroupInterface.getRT(f"radio95 - Program godzinny\r")
@@ -369,15 +405,16 @@ status_ps = 0
 status_rt = 0
 while True:
     gr = seq.get_next()
-    # time.sleep(0.08)
+    time.sleep(0.08)
     match gr:
         case Groups.PS:
-            pr(GroupGenerator.ps(basic, ps[0],status_ps))
+            # pr(GroupGenerator.ps(basic, ps[0],status_ps))
+            pr_bit(BitGenerator.process(GroupGenerator.ps(basic, ps[0],status_ps)))
             status_ps += 1
             if status_ps >= ps[1]: status_ps = 0
         case Groups.RT:
-            pr(GroupGenerator.rt(basic, rt[0],status_rt))
+            pr_bit(BitGenerator.process(GroupGenerator.rt(basic, rt[0],status_rt)))
             status_rt += 1
             if status_rt >= rt[1]: status_rt = 0
         case Groups.ECC:
-            pr(GroupGenerator.ecc(basic, 0xE2))
+            pr_bit(BitGenerator.process(GroupGenerator.ecc(basic, 0xE2)))
