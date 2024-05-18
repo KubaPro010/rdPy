@@ -15,4 +15,4 @@ rdPy can encode these groups:
   -?CT (probably not working)
 # Code
 the main.py file contains the code for RDS itself and a example use-case at the end
-**Note** that the example use-case to run requires atleast python 3.10
+**Note** that the example use-case and the charset to run requires atleast python 3.10 with its use of `match`
