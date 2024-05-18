@@ -1,5 +1,7 @@
 # rdPy
 rdPy is a python RDS encoder, encoder not modulator you can't use it in your setup just like that, it is a proof-of-concept program
+
+what libs are used? are you asking what libs are used? time can be used in the example, but the generation itself only requires enum for af, enum is a python [stdlib](https://docs.python.org/3/library/enum.html)
 # Features
 rdPy has a built in Group Sequencer, Group Interfacer (to prepare the text and segments for group gen) a print function which will print in a format that you can pass into redsea or output to a .spy file to be read by rds spy, Alternative Frequency (FM, LF, MF, RBDS MF)
 # Groups
@@ -13,3 +15,4 @@ rdPy can encode these groups:
   -?CT (probably not working)
 # Code
 the main.py file contains the code for RDS itself and a example use-case at the end
+**Note** that the example use-case to run requires atleast python 3.10
