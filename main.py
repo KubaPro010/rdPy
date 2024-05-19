@@ -257,6 +257,15 @@ class GroupGenerator:
             (RDSCharset().translate(rt_text[segment*4+0])<<8 | RDSCharset().translate(rt_text[segment*4+1])) & 0xFFFF,
             (RDSCharset().translate(rt_text[segment*4+2])<<8 | RDSCharset().translate(rt_text[segment*4+3])) & 0xFFFF
         ]
+    def rt_b(blocks:list,rt_text:str,segment:int,ab:bool=False):
+        """This function will generate a RT (2B) group with a function of A/B, it can be used in a similiar way to PS, max segment is 16"""
+        if segment > 16: raise Exception("Segment limit")
+        return [
+            blocks[0] & 0xFFFF,
+            (0x0800 | blocks[1] | 2 << 12 | int(ab) << 4 | segment) & 0xFFFF,
+            blocks[0] & 0xFFFF,
+            (RDSCharset().translate(rt_text[segment*4+2])<<8 | RDSCharset().translate(rt_text[segment*4+3])) & 0xFFFF
+        ]
     def ptyn(blocks:list,ptyn_text:str,segment:int):
         """This function will generate a PTYN (10A) group, it can be used in a similiar way to RT, max segment is 2"""
         if segment > 2: raise Exception
