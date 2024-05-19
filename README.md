@@ -7,7 +7,7 @@ rdPy has a built in Group Sequencer, Group Interfacer (to prepare the text and s
 # Groups
 rdPy can encode these groups:<br>
   -Basic group (basics for every group such as the pi code, tp and pty<br>
-  -PS (with toggable ms, ta, changable di and possibility of setting block 2 for af)<br>
+  -PS (with toggable ms, ta, changable di and possibility of setting block 2 for af, you don't want af? just use the 0B group or just dont pass in block2 into the ps func)<br>
   -RT (with toggable AB)<br>
   -PTYN<br>
   -ECC<br>
