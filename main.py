@@ -2,7 +2,7 @@
     -https://stackoverflow.com/questions/5676646/how-can-i-fill-out-a-python-string-with-spaces
     -https://github.com/barteqcz/MicroRDS/blob/main/src/rds.c
     -https://github.com/barteqcz/MicroRDS/blob/main/src/lib.c (for af and the charset)
-    -http://www.interactive-radio-system.com/docs/EN50067_RDS_Standard.pdf (for the mjd calculation)
+    -http://www.interactive-radio-system.com/docs/EN50067_RDS_Standard.pdf (for the mjd calculation and 0B)
 this is mostly tested with RDS Spy and redsea
 bash Commands used: /bin/python /home/kuba/rdsEncoder.py | redsea -h  /bin/python /home/kuba/rdsEncoder.py > test.spy , python3 rdsEncoder.py | redsea -i bits -R
 
@@ -220,61 +220,71 @@ class GroupGenerator:
     def basicGroup(pi:int, tp: bool=False, pty: int=0):
         """This function will generate the basics for a group, pass the output of this into the blocks argument of the other groups"""
         return [
-            pi, #this is not changed by any group
-            int(tp) << 10 | pty << 5, #information and possibly can be some data
+            pi & 0xFFFF, #this is not changed by any group
+            (int(tp) << 10 | pty << 5) & 0xFFFF, #information and possibly can be some data
             0,0 #arguments for the group
         ]
-    def ps(blocks:list,ps_text:str,segment:int,ms:bool=True,ta:bool=False,di:int=1,block2:int=None):
+    def ps(blocks:list,ps_text:str,segment:int,ms:bool=True,ta:bool=False,di:int=1,block2:int=0):
         """This function will generate a PS (0A) group, needs the ps text itself and the current segment to generate, it is meant to be ran in a for loop with, like this:
         for segment in range(4):
             GroupGenerator.ps(basic,'radio95 ',segment)
         max segment is 4"""
         if segment > 4: raise Exception("Segment limit")
         return [
-            blocks[0],
-            blocks[1] | int(ta) << 4 | int(ms) << 3 | ((di>>(3-segment)) << 2) | segment,
-            block2 or AlternativeFrequency.get_no_af(),
-            RDSCharset().translate(ps_text[segment*2])<<8 | RDSCharset().translate(ps_text[segment*2+1])
+            blocks[0] & 0xFFFF,
+            (blocks[1] | int(ta) << 4 | int(ms) << 3 | ((di>>(3-segment)) << 2) | segment) & 0xFFFF,
+            int(block2) & 0xFFFF or AlternativeFrequency.get_no_af(),
+            (RDSCharset().translate(ps_text[segment*2])<<8 | RDSCharset().translate(ps_text[segment*2+1])) & 0xFFFF,
+        ]
+    def ps_b(blocks:list,ps_text:str,segment:int,ms:bool=True,ta:bool=False,di:int=1):
+        """This function will generate a PS (0B) group, needs the ps text itself and the current segment to generate, it is meant to be ran in a for loop with, like this:
+        for segment in range(4):
+            GroupGenerator.ps_b(basic,'radio95 ',segment)
+        max segment is 4, the diffrence between 0A is that this does not do AF"""
+        if segment > 4: raise Exception("Segment limit")
+        return [
+            blocks[0] & 0xFFFF,
+            (0x0800 | blocks[1] | int(ta) << 4 | int(ms) << 3 | ((di>>(3-segment)) << 2) | segment) & 0xFFFF, #0800 is from generate_rds.py of pydemod and from the docs of rds http://www.interactive-radio-system.com/docs/EN50067_RDS_Standard.pdf page 13, 0800 in binary is a 16 bit number with the 5th bit only on, which is the b0 bit
+            blocks[0] & 0xFFFF, #http://www.interactive-radio-system.com/docs/EN50067_RDS_Standard.pdf page 15
+            (RDSCharset().translate(ps_text[segment*2])<<8 | RDSCharset().translate(ps_text[segment*2+1])) & 0xFFFF,
         ]
     def rt(blocks:list,rt_text:str,segment:int,ab:bool=False):
         """This function will generate a RT (2A) group with a function of A/B, it can be used in a similiar way to PS, max segment is 16"""
         if segment > 16: raise Exception("Segment limit")
         return [
-            blocks[0],
-            blocks[1] | 2 << 12 | int(ab) << 4 | segment,
-            RDSCharset().translate(rt_text[segment*4])<<8 | RDSCharset().translate(rt_text[segment*4+1]),
-            RDSCharset().translate(rt_text[segment*4+2])<<8 | RDSCharset().translate(rt_text[segment*4+3])
+            blocks[0] & 0xFFFF,
+            (blocks[1] | 2 << 12 | int(ab) << 4 | segment) & 0xFFFF,
+            (RDSCharset().translate(rt_text[segment*4+0])<<8 | RDSCharset().translate(rt_text[segment*4+1])) & 0xFFFF,
+            (RDSCharset().translate(rt_text[segment*4+2])<<8 | RDSCharset().translate(rt_text[segment*4+3])) & 0xFFFF
         ]
     def ptyn(blocks:list,ptyn_text:str,segment:int):
         """This function will generate a PTYN (10A) group, it can be used in a similiar way to RT, max segment is 2"""
         if segment > 2: raise Exception
         return [
-            blocks[0],
-            blocks[1] | 10 << 12 | segment,
-            RDSCharset().translate(ptyn_text[segment*4])<<8 | RDSCharset().translate(ptyn_text[segment*4+1]),
-            RDSCharset().translate(ptyn_text[segment*4+2])<<8 | RDSCharset().translate(ptyn_text[segment*4+3])
+            blocks[0] & 0xFFFF,
+            (blocks[1] | 10 << 12 | segment) & 0xFFFF,
+            (RDSCharset().translate(ptyn_text[segment*4+0])<<8 | RDSCharset().translate(ptyn_text[segment*4+1])) & 0xFFFF,
+            (RDSCharset().translate(ptyn_text[segment*4+2])<<8 | RDSCharset().translate(ptyn_text[segment*4+3])) & 0xFFFF
         ]
     def ecc(blocks:list, ecc: int):
         """This function will generate a ECC (1A) group, it can be used to identify the country of the broadcast"""
         return [
-            blocks[0],
-            blocks[1] | 1 << 12,
-            blocks[2] | ecc,
-            blocks[3]
+            blocks[0] & 0xFFFF,
+            (blocks[1] | 1 << 12) & 0xFFFF,
+            (blocks[2] | ecc) & 0xFFFF,
+            blocks[3] & 0xFFFF
         ]
     def lic(blocks:list, lic: int):
         """This function will generate a LIC (1A) group, it can be used to identify the language of the broadcast"""
         return [
-            blocks[0],
-            blocks[1] | 1 << 12,
-            blocks[2] | lic | 0x3000,
-            blocks[3]
+            blocks[0] & 0xFFFF,
+            (blocks[1] | 1 << 12) & 0xFFFF,
+            (blocks[2] | (lic | 0x3000)) & 0xFFFF,
+            blocks[3] & 0xFFFF
         ]
     def ct(blocks: list, hour: int, min: int, year: int, day: int, month: int, hour_local: int=None):
-        """This function generates a CT (4A) group
-        It is not redecommended until it is fixed (idk where)
-        as redsea and rds spy decode the year 1958 (even fm barely existed) when its supposted to be 2024"""
-        "input: 12 may hour 19:50, local hour 21, year 2024, output (redsea): 1958-12-08T16:45:00-04:30 FIXME:"
+        """This function should generate a CT (4A) group
+        FIXME: invalid date/time"""
         def calculate_mjd(month, day, year):
             #http://www.interactive-radio-system.com/docs/EN50067_RDS_Standard.pdf page 82
             l = 1 if month == 1 or month == 2 else 0
@@ -282,13 +292,13 @@ class GroupGenerator:
         if hour_local: offset = ((hour_local-hour)*(30*60))
         mjd = calculate_mjd(month, day, year)
         blocks= [
-            blocks[0],
-            blocks[1] | 4 << 12 | (mjd >> 15),
-            (mjd << 1) | (hour >> 4),
-            (hour & 0xF) << 12 | min << 6
+            blocks[0] & 0xFFFF,
+            blocks[1] | 4 << 12 | (mjd >> 15) & 0xFFF,
+            ((mjd << 1) | (hour >> 4)) & 0xFFFF,
+            ((hour & 0xF) << 12 | min << 6) & 0xFFFF
         ]
         if hour_local:
-            blocks[3] |= abs(offset)
+            blocks[3] |= (abs(offset) & 0xFFFF)
             if offset < 0: blocks[3] |= 0x20
         return blocks
 
@@ -306,6 +316,7 @@ def pr_bit(bits):
     """This will print the blocks in a format which can be either outputed to redsea or to pydemod to modulate"""
     for bit in bits:
         print("1" if int(bit) == 1 else "0",end="",flush=True)
+    # print(flush=True)
 class GroupInterface:
     """This is a comfort class which will automatically pick the number of segments for a selected type of group"""
     def getPS(text: str, full:bool=False):
@@ -363,6 +374,8 @@ class GroupSequencer:
         prev = self.sequence[self.cur_idx]
         self.cur_idx += 1
         return prev
+    def __len__(self):
+        return len(self.sequence)
 
 import numpy
 class BitGenerator:
@@ -370,7 +383,7 @@ class BitGenerator:
         #i stole this code from pydemod https://github.com/ChristopheJacquet/Pydemod
         def to_bin(x):
             res = []
-            for i in range(16):
+            for _ in range(16):
                 res.insert(0, x % 2)
                 x >>= 1
             return res
@@ -392,29 +405,35 @@ class BitGenerator:
         bitstream[:,16:] ^= offsets
         return bitstream.flatten()
     def process(blocks: list):
+        blockswcheck = [0,0,0,0]
         for i,block in enumerate(blocks):
-            blocks[i] = (["A","B","C","D"][i], block)
-        return BitGenerator._generate(blocks)
+                if blocks[0] == blocks[2]: # this is a group b
+                    blockswcheck[i] = (["A","B","C'","D"][i], block)
+                else: blockswcheck[i] = (["A","B","C","D"][i], block)
+        return BitGenerator._generate(blockswcheck)
+
 
 basic = GroupGenerator.basicGroup(0x3073, pty=10)
 ps = GroupInterface.getPS("radio95", True)
 rt = GroupInterface.getRT(f"radio95 - Program godzinny\r")
-seq = GroupSequencer([Groups.PS, Groups.PS, Groups.PS, Groups.PS, Groups.PS, Groups.RT, Groups.RT, Groups.RT, Groups.RT, Groups.ECC])
+seq = GroupSequencer([Groups.PS, Groups.PS, Groups.PS, Groups.PS, Groups.PS, Groups.PS, Groups.RT, Groups.RT, Groups.RT, Groups.RT, Groups.RT, Groups.RT, Groups.ECC])
 import time
 status_ps = 0
 status_rt = 0
-while True:
+for _ in range(int(len(seq)+rt[1])): #for whole rt
     gr = seq.get_next()
     time.sleep(0.08)
     match gr:
         case Groups.PS:
-            # pr(GroupGenerator.ps(basic, ps[0],status_ps))
-            pr_bit(BitGenerator.process(GroupGenerator.ps(basic, ps[0],status_ps)))
+            # pr(GroupGenerator.ps_b(basic, ps[0],status_ps)) # this is for rds spy format
+            pr_bit(BitGenerator.process(GroupGenerator.ps_b(basic, ps[0],status_ps)))
             status_ps += 1
             if status_ps >= ps[1]: status_ps = 0
         case Groups.RT:
             pr_bit(BitGenerator.process(GroupGenerator.rt(basic, rt[0],status_rt)))
+            # pr(GroupGenerator.rt(basic, rt[0],status_rt))
             status_rt += 1
             if status_rt >= rt[1]: status_rt = 0
         case Groups.ECC:
+            # pr(GroupGenerator.ecc(basic, 0xE2))
             pr_bit(BitGenerator.process(GroupGenerator.ecc(basic, 0xE2)))
