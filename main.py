@@ -264,7 +264,7 @@ class GroupGenerator:
             blocks[0] & 0xFFFF,
             (0x0800 | blocks[1] | 2 << 12 | int(ab) << 4 | segment) & 0xFFFF,
             blocks[0] & 0xFFFF,
-            (RDSCharset().translate(rt_text[segment*4+2])<<8 | RDSCharset().translate(rt_text[segment*4+3])) & 0xFFFF
+            (RDSCharset().translate(rt_text[segment*2+2])<<8 | RDSCharset().translate(rt_text[segment*2+3])) & 0xFFFF
         ]
     def ptyn(blocks:list,ptyn_text:str,segment:int):
         """This function will generate a PTYN (10A) group, it can be used in a similiar way to RT, max segment is 2"""
