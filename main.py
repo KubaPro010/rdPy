@@ -311,11 +311,6 @@ class GroupGenerator:
             if offset < 0: blocks[3] |= 0x20
         return blocks
 
-def SubstituteCharacterAtPosition(string, char, index):
-    """This is a helper function that works like 'string[index] = char' in c"""
-    if not (0 <= index < len(string)):
-        raise IndexError("Index out of range")
-    return string[:index] + char + string[index + 1:]
 def pr(blocks):
     """This will print the blocks in a format which can be either outputed to redsea with the -h flag or written to a file for RDS Spy to read"""
     for i in blocks:
@@ -375,12 +370,12 @@ class Groups(Enum):
     PTYN = 4
 class GroupSequencer:
     def __init__(self, sequence:list[IntEnum]) -> None:
-        self.cur_idx = 0
+        self.cur_idx = 1
         self.sequence = sequence
     def get_next(self):
         if len(self.sequence) == 0: return
-        if self.cur_idx > len(self.sequence)-1: self.cur_idx = 0
-        prev = self.sequence[self.cur_idx]
+        if self.cur_idx > len(self.sequence)-1: self.cur_idx = 1
+        prev = self.sequence[self.cur_idx-1]
         self.cur_idx += 1
         return prev
     def __len__(self):
