@@ -1,4 +1,6 @@
 # rdPy
+USE THE PACKAGED VERSION
+
 rdPy is a python RDS encoder, encoder not modulator you can't use it in your setup just like that, it is a proof-of-concept program
 
 what libs are used? are you asking what libs are used? time can be used in the example, but the generation itself only requires enum for af, enum is a python [stdlib](https://docs.python.org/3/library/enum.html)
